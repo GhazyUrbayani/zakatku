@@ -21,7 +21,7 @@
     untuk menutup gap Rp286 triliun antara potensi dan realisasi zakat nasional Indonesia.
   </p>
 
-  [Live Demo](https://www.perplexity.ai/computer/a/zakatku-ai-zakat-calculator-QJXAKV9iT8Kq6Nj5tCa9_w) • [Lapor Bug](https://github.com/GhazyUrbayani/zakatku/issues) • [Dokumentasi](#-panduan-instalasi)
+  [Live Demo](https://zakatku-mayar.vercel.app/) • [Lapor Bug](https://github.com/GhazyUrbayani/zakatku/issues) • [Dokumentasi](#-panduan-instalasi)
 
 </div>
 
@@ -213,53 +213,111 @@ NODE_ENV=production node dist/index.cjs
 
 ## 💳 Integrasi Mayar Payment
 
-Saat ini ZakatKu menggunakan **mock payment URL** untuk demo. Untuk mengaktifkan pembayaran nyata via Mayar:
+ZakatKu terintegrasi langsung dengan **[Mayar Payment Gateway](https://mayar.id)** untuk pembayaran nyata. Sistem berjalan dalam **2 mode**:
 
-### Langkah 1: Daftar Akun Mayar
+| Mode | Kondisi | Perilaku |
+| :--- | :--- | :--- |
+| 🟢 **Production** | `MAYAR_API_KEY` di-set | Invoice Mayar asli dibuat, user diarahkan ke halaman pembayaran Mayar |
+| 🟡 **Demo** | `MAYAR_API_KEY` tidak di-set | Mock payment URL untuk testing |
+
+### Alur Pembayaran (Production Mode)
+
+```
+┌─────────────┐     POST /api/donations     ┌──────────────────┐
+│  User isi   │ ───────────────────────────▶ │  Vercel Function │
+│  form donasi│                              │  donations/      │
+└─────────────┘                              └────────┬─────────┘
+                                                      │
+                                                      ▼
+                                        ┌──────────────────────────┐
+                                        │  Mayar API               │
+                                        │  POST /hl/v1/invoice/    │
+                                        │       create             │
+                                        └────────┬─────────────────┘
+                                                  │
+                                                  ▼
+                                        ┌──────────────────────────┐
+                                        │  Return payment link     │
+                                        │  → user redirect ke      │
+                                        │    halaman bayar Mayar   │
+                                        └────────┬─────────────────┘
+                                                  │
+                                        (User bayar via QRIS/VA/eWallet)
+                                                  │
+                                                  ▼
+                                        ┌──────────────────────────┐
+                                        │  Mayar Webhook           │
+                                        │  POST /api/mayar/webhook │
+                                        │  event: payment.received │
+                                        └──────────────────────────┘
+```
+
+### Setup Langkah demi Langkah
+
+#### Langkah 1: Daftar Akun Mayar
 1. Buka [mayar.id](https://mayar.id) → klik **"Daftar Sekarang"**
-2. Isi data bisnis/organisasi, verifikasi email
-3. Login ke Mayar Dashboard
+2. Untuk **testing**, gunakan [web.mayar.club](https://web.mayar.club)
+3. Isi data bisnis/organisasi, verifikasi email
+4. Login ke Mayar Dashboard
 
-### Langkah 2: Dapatkan API Key
+#### Langkah 2: Dapatkan API Key
 1. Di dashboard, buka **Integration** → **API Keys**
 2. Klik **"Generate New API Key"**
 3. Simpan API key (hanya ditampilkan sekali!)
 
-### Langkah 3: Konfigurasi di Kode
-Buka file `server/routes.ts`, cari bagian `POST /api/donations`, dan uncomment kode Mayar API call:
+#### Langkah 3: Set Environment Variable
 
-```typescript
-// Uncomment dan ganti YOUR_API_KEY:
-const response = await fetch("https://api.mayar.id/izar/v1/invoice/create", {
-  method: "POST",
-  headers: {
-    "Authorization": `Bearer ${process.env.MAYAR_API_KEY}`,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    name: donorName,
-    email: donorEmail,
-    amount: amount,
-    description: `Donasi ${type} - ${campaign.title}`
-  })
-});
-```
-
-### Langkah 4: Set Environment Variable
+**Lokal (development):**
 ```bash
-export MAYAR_API_KEY="your-mayar-api-key-here"
+cp .env.example .env
+# Edit .env dan masukkan API key:
+# MAYAR_API_KEY=your-mayar-api-key-here
 npm run dev
 ```
 
-### Langkah 5: Setup Webhook (Opsional)
+**Vercel (production):**
+1. Buka [Vercel Dashboard](https://vercel.com) → project zakatku
+2. Masuk ke **Settings** → **Environment Variables**
+3. Tambahkan:
+   - Key: `MAYAR_API_KEY`
+   - Value: `your-mayar-api-key-here`
+4. Klik **Save** → **Redeploy**
+
+#### Langkah 4: Setup Webhook
 1. Di Mayar Dashboard → **Integration** → **Webhooks**
-2. Tambah webhook URL: `https://your-domain.com/api/mayar/webhook`
-3. Pilih event: `payment.success`
-4. Donasi akan otomatis ter-update statusnya menjadi "paid" saat pembayaran berhasil
+2. Tambah webhook URL: `https://zakatku-mayar.vercel.app/api/mayar/webhook`
+3. Event yang di-handle:
+   - `payment.received` → Update status donasi menjadi **"paid"**
+   - `payment.reminder` → Log reminder (opsional)
+4. Data `extraData` otomatis melacak `donationId`, `campaignId`, dan `donationType`
+
+### Payload Invoice ke Mayar API
+
+```json
+{
+  "name": "Ahmad Fauzi",
+  "email": "ahmad@email.com",
+  "description": "Zakat Maal - Beasiswa Yatim Ramadhan | ZakatKu",
+  "expiredAt": "2026-03-17T16:00:00.000Z",
+  "redirectUrl": "https://zakatku-mayar.vercel.app/#/dashboard",
+  "items": [{
+    "quantity": 1,
+    "rate": 500000,
+    "description": "Donasi Beasiswa Yatim Ramadhan"
+  }],
+  "extraData": {
+    "donationId": "don-abc12345",
+    "campaignId": "camp-1",
+    "donationType": "zakat_maal"
+  }
+}
+```
 
 ### Referensi Dokumentasi Mayar
+- [Mayar API — Create Invoice](https://docs.mayar.id/api-reference/invoice/create) — Endpoint `POST https://api.mayar.id/hl/v1/invoice/create`
+- [Mayar Webhook](https://docs.mayar.id/integration/webhook) — Event types & payload structure
 - [Mayar MCP Server](https://mcp.mayar.id/) — 16 tools, 7 kategori (Account, Invoice, Customer, Transaction, Membership, Unpaid, Product)
-- [Mayar API Documentation](https://api.mayar.id/docs/)
+- [Mayar API Keys](https://docs.mayar.id/accountsetup) — Cara mendapatkan API key
 
 ---
 
@@ -295,6 +353,22 @@ zakatku/
 │   └── 📄 static.ts             # Static file serving (production)
 ├── 📂 shared/
 │   └── 📄 schema.ts             # Data model (Drizzle + Zod): campaigns, donations, zakatCalculations
+├── 📂 api/                       # Vercel Serverless Functions
+│   ├── 📄 _data.js              # Shared seed data (campaigns, donations)
+│   ├── 📂 campaigns/
+│   │   ├── 📄 index.js          # GET /api/campaigns
+│   │   └── 📄 [id].js           # GET /api/campaigns/:id
+│   ├── 📂 donations/
+│   │   ├── 📄 index.js          # GET/POST /api/donations (+ Mayar API)
+│   │   └── 📂 campaign/
+│   │       └── 📄 [id].js       # GET /api/donations/campaign/:id
+│   ├── 📄 stats.js              # GET /api/stats
+│   ├── 📂 zakat/
+│   │   └── 📄 calculate.js      # POST /api/zakat/calculate
+│   └── 📂 mayar/
+│       └── 📄 webhook.js        # POST /api/mayar/webhook
+├── 📄 vercel.json               # Vercel deployment config
+├── 📄 .env.example              # Environment variables template
 ├── 📄 tailwind.config.ts        # Tailwind config + Plus Jakarta Sans
 ├── 📄 vite.config.ts            # Vite config + path aliases
 ├── 📄 drizzle.config.ts         # Drizzle ORM config
@@ -342,12 +416,20 @@ AI melakukan quality assurance menggunakan **Playwright** browser automation:
 ### 5. 📦 Git & Repository
 AI membuat GitHub repo, commit, dan push kode — semua dari satu sesi vibecoding.
 
-**⏱️ Total waktu: ~30 menit dari nol sampai live.**
+### 6. 🌐 Deployment ke Vercel
+AI mengkonversi backend Express ke **Vercel Serverless Functions**, membuat `vercel.json`, dan men-deploy ke [zakatku-mayar.vercel.app](https://zakatku-mayar.vercel.app/).
+
+### 7. 💳 Integrasi Mayar (Real Payment)
+AI mengimplementasikan integrasi langsung ke **Mayar API** (`create_invoice`) dengan webhook handler, `extraData` tracking, dan graceful fallback ke demo mode.
+
+**⏱️ Total waktu: ~45 menit dari nol sampai live dengan payment integration.**
 
 ### Tools yang Digunakan:
 - **Perplexity Computer** (Claude Sonnet) — AI agent utama untuk vibecoding
 - **Perplexity AI Search** — Riset data zakat terkini & problem validation
 - **Playwright** — Automated visual QA testing
+- **Vercel** — Serverless deployment platform
+- **Mayar API** — Payment gateway Indonesia
 
 ---
 
