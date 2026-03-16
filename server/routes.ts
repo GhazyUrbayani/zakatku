@@ -45,32 +45,85 @@ export async function registerRoutes(
 
     const donation = await storage.createDonation(parsed.data);
 
-    // Generate Mayar payment link
-    // In production, call Mayar API:
-    //
-    // const response = await fetch("https://api.mayar.id/izar/v1/invoice/create", {
-    //   method: "POST",
-    //   headers: {
-    //     "Authorization": `Bearer ${process.env.MAYAR_API_KEY}`,
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify({
-    //     name: parsed.data.donorName,
-    //     email: parsed.data.donorEmail,
-    //     amount: parsed.data.amount,
-    //     description: `Donasi ${parsed.data.type} - ZakatKu`,
-    //     expiredAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    //   }),
-    // });
-    // const { data } = await response.json();
-    // const paymentUrl = data.link;
-    // const mayarInvoiceId = data.id;
+    // ===== MAYAR PAYMENT INTEGRATION =====
+    const MAYAR_API_KEY = process.env.MAYAR_API_KEY;
 
-    const invoiceId = `INV-${randomUUID().slice(0, 8).toUpperCase()}`;
-    const paymentUrl = `https://mayar.id/pay/demo-${invoiceId}`;
+    if (MAYAR_API_KEY) {
+      // Production mode: call Mayar API
+      try {
+        const campaign = await storage.getCampaign(parsed.data.campaignId);
+        const campaignTitle = campaign ? campaign.title : "Program Donasi ZakatKu";
+        const typeLabel =
+          parsed.data.type === "zakat_maal" ? "Zakat Maal" :
+          parsed.data.type === "zakat_penghasilan" ? "Zakat Penghasilan" :
+          parsed.data.type === "infaq" ? "Infaq" : "Sedekah";
 
-    const updated = await storage.updateDonationStatus(donation.id, "pending", paymentUrl, invoiceId);
-    res.status(201).json(updated);
+        const expiredAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        const origin = req.headers.origin || req.headers.referer || "https://zakatku-mayar.vercel.app";
+
+        const mayarPayload = {
+          name: parsed.data.donorName,
+          email: parsed.data.donorEmail,
+          description: `${typeLabel} - ${campaignTitle} | ZakatKu`,
+          expiredAt,
+          redirectUrl: `${origin}/#/dashboard`,
+          items: [{
+            quantity: 1,
+            rate: parsed.data.amount,
+            description: `Donasi ${campaignTitle}`,
+          }],
+          extraData: {
+            donationId: donation.id,
+            campaignId: parsed.data.campaignId,
+            donationType: parsed.data.type,
+          },
+        };
+
+        const mayarResponse = await fetch("https://api.mayar.id/hl/v1/invoice/create", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${MAYAR_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(mayarPayload),
+        });
+
+        const mayarData = await mayarResponse.json() as {
+          statusCode: number;
+          messages: string;
+          data?: { id: string; link: string; transactionId: string; expiredAt: number };
+        };
+
+        if (mayarData.statusCode === 200 && mayarData.data) {
+          const updated = await storage.updateDonationStatus(
+            donation.id,
+            "pending",
+            mayarData.data.link,
+            mayarData.data.id
+          );
+          return res.status(201).json(updated);
+        } else {
+          console.error("Mayar API error:", mayarData);
+          return res.status(502).json({
+            error: "Gagal membuat invoice Mayar",
+            detail: mayarData.messages || "Unknown error",
+          });
+        }
+      } catch (error: unknown) {
+        console.error("Mayar API call failed:", error);
+        return res.status(502).json({
+          error: "Gagal menghubungi Mayar API",
+          detail: error instanceof Error ? error.message : String(error),
+        });
+      }
+    } else {
+      // Demo mode: generate mock Mayar payment link
+      const invoiceId = `INV-${randomUUID().slice(0, 8).toUpperCase()}`;
+      const paymentUrl = `https://mayar.id/pay/demo-${invoiceId}`;
+
+      const updated = await storage.updateDonationStatus(donation.id, "pending", paymentUrl, invoiceId);
+      res.status(201).json(updated);
+    }
   });
 
   // === ZAKAT CALCULATOR ===
@@ -216,28 +269,46 @@ export async function registerRoutes(
 
   // === MAYAR WEBHOOK ===
   app.post("/api/mayar/webhook", async (req, res) => {
-    // In production, verify webhook signature from Mayar
-    // const signature = req.headers["x-mayar-signature"];
-    // Verify with HMAC SHA256 using webhook secret
-    const { invoiceId, status } = req.body;
+    const payload = req.body;
 
-    if (!invoiceId || !status) {
-      return res.status(400).json({ error: "Missing invoiceId or status" });
+    console.log("Mayar webhook received:", JSON.stringify(payload, null, 2));
+
+    if (!payload || !payload.event) {
+      return res.status(400).json({ error: "Invalid webhook payload" });
     }
 
-    const donations = await storage.getDonations();
-    const donation = donations.find(d => d.mayarInvoiceId === invoiceId);
+    const { event, data } = payload;
 
-    if (!donation) return res.status(404).json({ error: "Donation not found" });
+    if (event === "payment.received") {
+      if (!data) {
+        return res.status(400).json({ error: "Missing data in webhook payload" });
+      }
 
-    const newStatus = status === "PAID" ? "paid" : status === "FAILED" ? "failed" : "pending";
-    await storage.updateDonationStatus(donation.id, newStatus);
+      const donationId = data.extraData?.donationId;
+      const campaignId = data.extraData?.campaignId;
 
-    if (newStatus === "paid") {
-      await storage.updateCampaignCollected(donation.campaignId, donation.amount);
+      if (donationId) {
+        await storage.updateDonationStatus(donationId, "paid");
+      }
+
+      if (campaignId && data.amount) {
+        await storage.updateCampaignCollected(campaignId, data.amount);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Payment processed",
+        donationId,
+        campaignId,
+      });
     }
 
-    res.json({ success: true });
+    if (event === "payment.reminder") {
+      console.log("Payment reminder for:", data?.customerEmail);
+      return res.status(200).json({ success: true, message: "Reminder acknowledged" });
+    }
+
+    return res.status(200).json({ success: true, message: `Event ${event} acknowledged` });
   });
 
   return httpServer;
