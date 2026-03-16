@@ -5,9 +5,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calculator, Eye, CreditCard, BarChart3, TrendingUp, Heart, ArrowRight } from "lucide-react";
+import { Calculator, Eye, CreditCard, BarChart3, Heart, ArrowRight } from "lucide-react";
 import { formatCurrency, getCategoryLabel, getCategoryColor } from "@/lib/format";
 import type { Campaign } from "@shared/schema";
+
+const campaignImages: Record<string, string> = {
+  "camp-1": "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=400&fit=crop",
+  "camp-2": "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&h=400&fit=crop",
+  "camp-3": "https://images.unsplash.com/photo-1556740758-90de374c12ad?w=800&h=400&fit=crop",
+  "camp-4": "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=800&h=400&fit=crop",
+  "camp-5": "https://images.unsplash.com/photo-1585036156171-384164a8c521?w=800&h=400&fit=crop",
+  "camp-6": "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=800&h=400&fit=crop",
+};
 
 function IslamicPattern() {
   return (
@@ -167,31 +176,36 @@ export default function Home() {
               {featuredCampaigns?.map(campaign => {
                 const pct = Math.round((campaign.collectedAmount / campaign.targetAmount) * 100);
                 return (
-                  <Card key={campaign.id} className="overflow-hidden border border-border hover:border-primary/30 transition-all hover:shadow-md" data-testid={`card-campaign-${campaign.id}`}>
-                    <div className="h-40 bg-gradient-to-br from-primary/20 via-primary/10 to-secondary/10 flex items-center justify-center">
-                      <TrendingUp className="h-16 w-16 text-primary/30" />
-                    </div>
-                    <CardContent className="p-5">
-                      <Badge className={`mb-3 ${getCategoryColor(campaign.category)}`} variant="secondary">
-                        {getCategoryLabel(campaign.category)}
-                      </Badge>
-                      <h3 className="font-bold text-base mb-2 line-clamp-1">{campaign.title}</h3>
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{campaign.description}</p>
-                      <Progress value={pct} className="h-2 mb-3" />
-                      <div className="flex justify-between text-sm">
-                        <span className="font-semibold text-primary">{formatCurrency(campaign.collectedAmount)}</span>
-                        <span className="text-muted-foreground">{pct}%</span>
+                  <Link key={campaign.id} href={`/donasi/${campaign.id}`}>
+                    <Card className="overflow-hidden border border-border hover:border-primary/30 transition-all hover:shadow-md group cursor-pointer h-full" data-testid={`card-campaign-${campaign.id}`}>
+                      <div className="h-40 relative overflow-hidden">
+                        <img
+                          src={campaignImages[campaign.id] || `https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=800&h=400&fit=crop`}
+                          alt={campaign.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
                       </div>
-                      <div className="text-xs text-muted-foreground mb-4">
-                        dari target {formatCurrency(campaign.targetAmount)}
-                      </div>
-                      <Link href={`/donasi/${campaign.id}`}>
-                        <Button className="w-full" size="sm" data-testid={`button-donasi-${campaign.id}`}>
+                      <CardContent className="p-5">
+                        <Badge className={`mb-3 ${getCategoryColor(campaign.category)}`} variant="secondary">
+                          {getCategoryLabel(campaign.category)}
+                        </Badge>
+                        <h3 className="font-bold text-base mb-2 line-clamp-1">{campaign.title}</h3>
+                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{campaign.description}</p>
+                        <Progress value={pct} className="h-2 mb-3" />
+                        <div className="flex justify-between text-sm">
+                          <span className="font-semibold text-primary">{formatCurrency(campaign.collectedAmount)}</span>
+                          <span className="text-muted-foreground">{pct}%</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mb-4">
+                          dari target {formatCurrency(campaign.targetAmount)}
+                        </div>
+                        <div className="w-full inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground h-9 px-4 py-2 text-sm font-medium" data-testid={`button-donasi-${campaign.id}`}>
                           Donasi Sekarang
-                        </Button>
-                      </Link>
-                    </CardContent>
-                  </Card>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 );
               })}
             </div>

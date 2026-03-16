@@ -9,13 +9,22 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, CreditCard, ArrowRight, ExternalLink } from "lucide-react";
+import { CheckCircle2, CreditCard, ArrowRight, ExternalLink, Phone } from "lucide-react";
 import { formatCurrency, getCategoryLabel, getCategoryColor } from "@/lib/format";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Campaign, Donation } from "@shared/schema";
 
-const presetAmounts = [50000, 100000, 250000, 500000, 1000000];
+const campaignImages: Record<string, string> = {
+  "camp-1": "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=400&fit=crop",
+  "camp-2": "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&h=400&fit=crop",
+  "camp-3": "https://images.unsplash.com/photo-1556740758-90de374c12ad?w=800&h=400&fit=crop",
+  "camp-4": "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=800&h=400&fit=crop",
+  "camp-5": "https://images.unsplash.com/photo-1585036156171-384164a8c521?w=800&h=400&fit=crop",
+  "camp-6": "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=800&h=400&fit=crop",
+};
+
+const presetAmounts = [10000, 25000, 50000, 100000, 250000, 500000, 1000000];
 
 const donationTypes = [
   { value: "zakat_maal", label: "Zakat Maal" },
@@ -30,6 +39,7 @@ export default function Donasi() {
 
   const [donorName, setDonorName] = useState("");
   const [donorEmail, setDonorEmail] = useState("");
+  const [donorMobile, setDonorMobile] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("");
   const [result, setResult] = useState<Donation | null>(null);
@@ -44,6 +54,7 @@ export default function Donasi() {
         campaignId: params.id,
         donorName,
         donorEmail,
+        donorMobile: donorMobile || undefined,
         amount: Number(amount),
         type,
       });
@@ -133,8 +144,12 @@ export default function Donasi() {
       <Card className="mb-6" data-testid="card-campaign-summary">
         <CardContent className="p-5">
           <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/10 flex items-center justify-center flex-shrink-0">
-              <CreditCard className="h-8 w-8 text-primary/50" />
+            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+              <img
+                src={campaignImages[campaign.id] || `https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=200&h=200&fit=crop`}
+                alt={campaign.title}
+                className="w-full h-full object-cover"
+              />
             </div>
             <div className="flex-1 min-w-0">
               <Badge className={`mb-2 ${getCategoryColor(campaign.category)}`} variant="secondary">
@@ -184,6 +199,22 @@ export default function Donasi() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="donor-mobile">Nomor HP (opsional)</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="donor-mobile"
+                  type="tel"
+                  value={donorMobile}
+                  onChange={(e) => setDonorMobile(e.target.value)}
+                  placeholder="08xxxxxxxxxx"
+                  className="pl-10"
+                  data-testid="input-donor-mobile"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <Label>Jenis Donasi</Label>
               <Select value={type} onValueChange={setType}>
                 <SelectTrigger data-testid="select-donation-type">
@@ -199,7 +230,7 @@ export default function Donasi() {
 
             <div className="space-y-2">
               <Label>Nominal Donasi</Label>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-3">
+              <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 mb-3">
                 {presetAmounts.map(preset => (
                   <Button
                     key={preset}
@@ -218,7 +249,7 @@ export default function Donasi() {
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Rp</span>
                 <Input
                   type="number"
-                  min="10000"
+                  min="1000"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="Masukkan nominal lain"

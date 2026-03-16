@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "POST") {
-    const { campaignId, donorName, donorEmail, amount, type } = req.body;
+    const { campaignId, donorName, donorEmail, donorMobile, amount, type } = req.body;
 
     if (!campaignId || !donorName || !donorEmail || !amount || !type) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -37,6 +37,7 @@ export default async function handler(req, res) {
         const mayarPayload = {
           name: donorName,
           email: donorEmail,
+          mobile: donorMobile || "08000000000",
           description: `${type === "zakat_maal" ? "Zakat Maal" : type === "zakat_penghasilan" ? "Zakat Penghasilan" : type === "infaq" ? "Infaq" : "Sedekah"} - ${campaignTitle} | ZakatKu`,
           expiredAt,
           redirectUrl: `${req.headers.origin || req.headers.referer || "https://zakatku-mayar.vercel.app"}/#/dashboard`,
@@ -48,16 +49,12 @@ export default async function handler(req, res) {
             },
           ],
           extraData: {
+            noCustomer: donorEmail,
+            idProd: campaignId,
             donationId,
-            campaignId,
             donationType: type,
           },
         };
-
-        // Add mobile if available (optional in our form)
-        if (req.body.donorMobile) {
-          mayarPayload.mobile = req.body.donorMobile;
-        }
 
         const mayarResponse = await fetch(
           "https://api.mayar.id/hl/v1/invoice/create",

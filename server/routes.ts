@@ -61,9 +61,12 @@ export async function registerRoutes(
         const expiredAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
         const origin = req.headers.origin || req.headers.referer || "https://zakatku-mayar.vercel.app";
 
+        const donorMobile = (req.body as Record<string, unknown>).donorMobile as string | undefined;
+
         const mayarPayload = {
           name: parsed.data.donorName,
           email: parsed.data.donorEmail,
+          mobile: donorMobile || "08000000000",
           description: `${typeLabel} - ${campaignTitle} | ZakatKu`,
           expiredAt,
           redirectUrl: `${origin}/#/dashboard`,
@@ -73,8 +76,9 @@ export async function registerRoutes(
             description: `Donasi ${campaignTitle}`,
           }],
           extraData: {
+            noCustomer: parsed.data.donorEmail,
+            idProd: parsed.data.campaignId,
             donationId: donation.id,
-            campaignId: parsed.data.campaignId,
             donationType: parsed.data.type,
           },
         };
