@@ -45,89 +45,16 @@ export async function registerRoutes(
 
     const donation = await storage.createDonation(parsed.data);
 
-    // ===== MAYAR PAYMENT INTEGRATION =====
-    const MAYAR_API_KEY = process.env.MAYAR_API_KEY;
+    // ===== DEMO MODE (Mayar payment simulation) =====
+    // Generates a demo invoice without calling Mayar API.
+    // When Mayar account is verified, switch back to production mode.
+    const invoiceId = `INV-${randomUUID().slice(0, 8).toUpperCase()}`;
 
-    if (MAYAR_API_KEY) {
-      // Production mode: call Mayar API
-      try {
-        const campaign = await storage.getCampaign(parsed.data.campaignId);
-        const campaignTitle = campaign ? campaign.title : "Program Donasi ZakatKu";
-        const typeLabel =
-          parsed.data.type === "zakat_maal" ? "Zakat Maal" :
-          parsed.data.type === "zakat_penghasilan" ? "Zakat Penghasilan" :
-          parsed.data.type === "infaq" ? "Infaq" : "Sedekah";
+    // Mark as paid immediately in demo mode & update campaign total
+    const updated = await storage.updateDonationStatus(donation.id, "paid", undefined, invoiceId);
+    await storage.updateCampaignCollected(parsed.data.campaignId, parsed.data.amount);
 
-        const expiredAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-        const origin = req.headers.origin || req.headers.referer || "https://zakatku-mayar.vercel.app";
-
-        const donorMobile = (req.body as Record<string, unknown>).donorMobile as string | undefined;
-
-        const mayarPayload = {
-          name: parsed.data.donorName,
-          email: parsed.data.donorEmail,
-          mobile: donorMobile || "08000000000",
-          description: `${typeLabel} - ${campaignTitle} | ZakatKu`,
-          expiredAt,
-          redirectUrl: `${origin}/#/dashboard`,
-          items: [{
-            quantity: 1,
-            rate: parsed.data.amount,
-            description: `Donasi ${campaignTitle}`,
-          }],
-          extraData: {
-            noCustomer: parsed.data.donorEmail,
-            idProd: parsed.data.campaignId,
-            donationId: donation.id,
-            donationType: parsed.data.type,
-          },
-        };
-
-        const mayarResponse = await fetch("https://api.mayar.id/hl/v1/invoice/create", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${MAYAR_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(mayarPayload),
-        });
-
-        const mayarData = await mayarResponse.json() as {
-          statusCode: number;
-          messages: string;
-          data?: { id: string; link: string; transactionId: string; expiredAt: number };
-        };
-
-        if (mayarData.statusCode === 200 && mayarData.data) {
-          const updated = await storage.updateDonationStatus(
-            donation.id,
-            "pending",
-            mayarData.data.link,
-            mayarData.data.id
-          );
-          return res.status(201).json(updated);
-        } else {
-          console.error("Mayar API error:", mayarData);
-          return res.status(502).json({
-            error: "Gagal membuat invoice Mayar",
-            detail: mayarData.messages || "Unknown error",
-          });
-        }
-      } catch (error: unknown) {
-        console.error("Mayar API call failed:", error);
-        return res.status(502).json({
-          error: "Gagal menghubungi Mayar API",
-          detail: error instanceof Error ? error.message : String(error),
-        });
-      }
-    } else {
-      // Demo mode: generate mock Mayar payment link
-      const invoiceId = `INV-${randomUUID().slice(0, 8).toUpperCase()}`;
-      const paymentUrl = `https://mayar.id/pay/demo-${invoiceId}`;
-
-      const updated = await storage.updateDonationStatus(donation.id, "pending", paymentUrl, invoiceId);
-      res.status(201).json(updated);
-    }
+    res.status(201).json(updated);
   });
 
   // === ZAKAT CALCULATOR ===

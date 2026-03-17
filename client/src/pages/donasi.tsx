@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "wouter";
+import { useParams, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, CreditCard, ArrowRight, ExternalLink, Phone } from "lucide-react";
+import { CheckCircle2, CreditCard, ArrowRight, Phone, BarChart3 } from "lucide-react";
 import { formatCurrency, getCategoryLabel, getCategoryColor } from "@/lib/format";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -110,25 +110,37 @@ export default function Donasi() {
       <div className="max-w-lg mx-auto px-4 py-16">
         <Card className="text-center" data-testid="card-donasi-success">
           <CardContent className="p-8">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="h-8 w-8 text-primary" />
+            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
             </div>
-            <h2 className="text-xl font-bold mb-2">Donasi Berhasil Dibuat!</h2>
+            <h2 className="text-xl font-bold mb-2">Donasi Berhasil!</h2>
             <p className="text-muted-foreground mb-2">
               Terima kasih, <strong>{result.donorName}</strong>
             </p>
-            <p className="text-2xl font-extrabold text-primary mb-6" data-testid="text-donasi-amount">
+            <p className="text-2xl font-extrabold text-primary mb-2" data-testid="text-donasi-amount">
               {formatCurrency(result.amount)}
             </p>
-            {result.paymentUrl && (
-              <a href={result.paymentUrl} target="_blank" rel="noopener noreferrer">
-                <Button size="lg" className="gap-2 w-full" data-testid="button-lanjutkan-pembayaran">
-                  <CreditCard className="h-5 w-5" />
-                  Lanjutkan Pembayaran
-                  <ExternalLink className="h-4 w-4" />
+            <Badge variant="secondary" className="mb-6 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+              Pembayaran Diterima
+            </Badge>
+            <p className="text-sm text-muted-foreground mb-6">
+              Donasi Anda untuk <strong>{campaign?.title}</strong> telah berhasil diproses.
+              Jazakallahu khairan atas kebaikan Anda.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Link href="/program">
+                <Button variant="outline" className="gap-2 w-full" data-testid="button-donasi-lagi">
+                  <CreditCard className="h-4 w-4" />
+                  Donasi Lagi
                 </Button>
-              </a>
-            )}
+              </Link>
+              <Link href="/dashboard">
+                <Button className="gap-2 w-full" data-testid="button-lihat-dashboard">
+                  <BarChart3 className="h-4 w-4" />
+                  Lihat Dashboard
+                </Button>
+              </Link>
+            </div>
             <p className="text-xs text-muted-foreground mt-4">
               Invoice: {result.mayarInvoiceId}
             </p>
