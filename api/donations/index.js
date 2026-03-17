@@ -41,6 +41,9 @@ export default async function handler(req, res) {
       mayarInvoiceId: invoiceId,
     };
 
+    // Persist in-memory so GET /api/donations and /api/stats reflect changes
+    donations.push(donation);
+
     // Update campaign collected amount in-memory
     if (campaign) {
       campaign.collectedAmount += numAmount;

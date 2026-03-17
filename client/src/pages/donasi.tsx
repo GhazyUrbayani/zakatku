@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle2, CreditCard, ArrowRight, Phone, BarChart3 } from "lucide-react";
 import { formatCurrency, getCategoryLabel, getCategoryColor } from "@/lib/format";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Campaign, Donation } from "@shared/schema";
 
@@ -62,9 +62,13 @@ export default function Donasi() {
     },
     onSuccess: (data: Donation) => {
       setResult(data);
+      // Invalidate cache so Dashboard + Campaign data refresh
+      queryClient.invalidateQueries({ queryKey: ["/api/donations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       toast({
-        title: "Donasi Berhasil Dibuat!",
-        description: "Silakan lanjutkan pembayaran melalui Mayar.",
+        title: "Donasi Berhasil!",
+        description: "Terima kasih atas donasi Anda.",
       });
     },
     onError: (err: Error) => {
