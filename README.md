@@ -21,7 +21,9 @@
     untuk menutup gap Rp286 triliun antara potensi dan realisasi zakat nasional Indonesia.
   </p>
 
-  [Live Demo](https://zakatku-mayar.vercel.app/) • [Lapor Bug](https://github.com/GhazyUrbayani/zakatku/issues) • [Dokumentasi](#-panduan-instalasi)
+  **🔗 [https://zakatku-mayar.vercel.app/](https://zakatku-mayar.vercel.app/)**
+
+  [![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-zakatku--mayar.vercel.app-0E8A5F?style=for-the-badge)](https://zakatku-mayar.vercel.app/) [![Lapor Bug](https://img.shields.io/badge/🐛_Lapor_Bug-Issues-red?style=for-the-badge)](https://github.com/GhazyUrbayani/zakatku/issues) [![Dokumentasi](https://img.shields.io/badge/📖_Dokumentasi-README-blue?style=for-the-badge)](#-panduan-instalasi)
 
 </div>
 
@@ -217,8 +219,8 @@ ZakatKu terintegrasi langsung dengan **[Mayar Payment Gateway](https://mayar.id)
 
 | Mode | Kondisi | Perilaku |
 | :--- | :--- | :--- |
-| 🟢 **Production** | `MAYAR_API_KEY` di-set | Invoice Mayar asli dibuat, user diarahkan ke halaman pembayaran Mayar |
-| 🟡 **Demo** | `MAYAR_API_KEY` tidak di-set | Mock payment URL untuk testing |
+| 🟢 **Production** | `MAYAR_API_KEY` di-set + akun terverifikasi | Invoice Mayar asli dibuat, user diarahkan ke halaman pembayaran Mayar |
+| 🟡 **Demo** (aktif saat ini) | Tanpa API key | Simulasi pembayaran — donasi langsung "Lunas", data update di Dashboard secara real-time via React Query cache |
 
 ### Alur Pembayaran (Production Mode)
 
