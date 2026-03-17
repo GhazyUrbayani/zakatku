@@ -62,10 +62,51 @@ export default function Donasi() {
     },
     onSuccess: (data: Donation) => {
       setResult(data);
-      // Invalidate cache so Dashboard + Campaign data refresh
-      queryClient.invalidateQueries({ queryKey: ["/api/donations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+
+      // === Update React Query cache directly (Vercel serverless is stateless) ===
+
+      // 1. Add new donation to donations list cache
+      queryClient.setQueryData<Donation[]>(["/api/donations"], (old) => {
+        if (!old) return [data];
+        return [...old, data];
+      });
+
+      // 2. Update campaign collected amount in cache
+      const donationAmount = data.amount;
+      const donationCampaignId = data.campaignId;
+
+      queryClient.setQueryData<Campaign[]>(["/api/campaigns"], (old) => {
+        if (!old) return old;
+        return old.map(c =>
+          c.id === donationCampaignId
+            ? { ...c, collectedAmount: c.collectedAmount + donationAmount }
+            : c
+        );
+      });
+
+      // Also update single campaign cache
+      queryClient.setQueryData<Campaign>(["/api/campaigns", donationCampaignId], (old) => {
+        if (!old) return old;
+        return { ...old, collectedAmount: old.collectedAmount + donationAmount };
+      });
+
+      // 3. Recalculate stats from updated donations cache
+      const allDonations = queryClient.getQueryData<Donation[]>(["/api/donations"]);
+      const allCampaigns = queryClient.getQueryData<Campaign[]>(["/api/campaigns"]);
+      if (allDonations && allCampaigns) {
+        const paidDonations = allDonations.filter(d => d.status === "paid");
+        const totalCollected = paidDonations.reduce((sum, d) => sum + d.amount, 0);
+        const totalDonors = new Set(paidDonations.map(d => d.donorEmail)).size;
+        const activeCampaigns = allCampaigns.filter(c => c.isActive).length;
+        const avgDonation = paidDonations.length > 0 ? Math.round(totalCollected / paidDonations.length) : 0;
+        queryClient.setQueryData(["/api/stats"], {
+          totalCollected,
+          totalDonors,
+          activeCampaigns,
+          avgDonation,
+        });
+      }
+
       toast({
         title: "Donasi Berhasil!",
         description: "Terima kasih atas donasi Anda.",
